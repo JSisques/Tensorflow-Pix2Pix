@@ -22,6 +22,8 @@ TRAIN_SAMPLES = round(500 * 0.8)    #Numero de muestras de entrenamiento
 IMG_WIDTH = 256                     #Anchura
 IMG_HEIGHT = 256                    #Altura
 
+LAMBDA = 100
+
 def main():
     #Carga de datos
 
@@ -36,6 +38,8 @@ def main():
     #Modelo
     model_generator = generator()
     model_discriminator = discriminator()
+
+    #Funciones de coste
 
    
 
@@ -271,5 +275,46 @@ def discriminator():
     model.summary()
 
     return model
+
+def set_losses():
+    #from_logits=True => para que las imagenes se normalicen pasandolas por una funcion sigmoide para que se queden entre 0 y 1 
+    loss_object = kr.losses.BinaryCrossentropy(from_logits=True)
+    total_disc_loss = discriminator_loss(loss_object)
+
+def discriminator_loss(loss_object, disc_real_output, disc_generated_output):
+    #Comparamos lo generado por la red discriminativa con el real
+    real_loss = loss_object(tf.ones_like(disc_real_output), disc_generated_output)
+
+    generated_loss = loss_object(tf.zeros_like(disc_real_output), disc_generated_output)
+
+    total_disc_loss = real_loss + generated_loss
+
+    return total_disc_loss
+
+def generator_loss(loss_object, disc_generated_output, gen_output, target):
+    gan_loss = loss_object(tf.ones_like(disc_generated_output), disc_generated_output)
+    l1_loss = tf.reduce_mean(tf.abs(target - gen_output))
+    total_gen_loss = gan_loss + (LAMBDA * l1_loss)
+
+    return total_gen_loss
+
+def set_optimizers():
+    generator_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
+    discriminator_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
+
+    return generator_optimizer, discriminator_optimizer
+
+def set_checkpoints():
+    generator_optimizer, discriminator_optimizer = set_optimizers()
+    checkpoint_prefix = os.path.join(CKPATH, 'ckpt')
+    checkpoint = tf.train.Checkpoint(
+        generator_optimizer= generator_optimizer,
+        discriminator_optimizer= discriminator_optimizer,
+        generator= generator,
+        discriminator=discriminator
+    )
+
+def restore_checkpoint(checkpoint):
+    checkpoint.restore(tf.train.latest_checkpoint(CKPATH)).assert_consumed()
 
 main()
