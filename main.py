@@ -9,6 +9,7 @@ import numpy as np
 import os
 
 from tensorflow.python.keras import initializers
+from tensorflow.python.keras.engine.training import Model
 from tensorflow.python.ops.gen_array_ops import shape
 
 INPATH = './inputImages/'           #Ruta de las imagenes de entrada
@@ -33,15 +34,10 @@ def main():
     #show_dataset_images(test_dataset)
 
     #Modelo
-    model = generator()
+    model_generator = generator()
+    model_discriminator = discriminator()
 
-    gen_output = model(((train_dataset[0] + 1) * 255), training=False)
-    plt.imshow(gen_output[0,...])
-    plt.show()
-
-
-
-    
+   
 
 def load_imgs_urls():
     #Cargamos los nombres de los ficheros
@@ -246,6 +242,34 @@ def generator():
     last = last(x)
     model = kr.Model(inputs=inputs, outputs=last)
     model.summary()
+    return model
+
+def discriminator():
+
+    ini = Input(shape=[None, None, 3], name='input_img')
+    gen = Input(shape=[None, None, 3], name='gener_img')
+
+    con = concatenate([ini, gen])
+
+    initializer = tf.random_normal_initializer(0, 0.02)
+
+    down1 = downsample(64, apply_batchnorm=False)(con)
+    down2 = downsample(128)(down1)
+    down3 = downsample(256)(down2)
+    down4 = downsample(512)(down3)
+
+    last = Conv2D(
+        filters=1,
+        kernel_size=4,
+        strides=1,
+        kernel_initializer=initializer,
+        padding='same'
+    )(down4)
+
+    model = kr.Model(inputs = [ini, gen], outputs=last)
+
+    model.summary()
+
     return model
 
 main()
